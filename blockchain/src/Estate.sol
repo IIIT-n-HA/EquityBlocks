@@ -14,7 +14,8 @@ contract Estate {
     // Logging events of all major actions and distributions for transparency and auditing purposes
     // Admin has ability for contract pausing, emergency updates, disputing fradulent transactions withinn controlled boundaries
 
-    uint256 public propertyCounter;
+    uint256 public propertyCounter; // to keep track of the number of properties added
+    uint256 public userCounter; // to keep track of the number of users registered
 
     enum PropertyStatus {
         OnSale,
@@ -28,8 +29,12 @@ contract Estate {
         PropertyStatus status;
     }
 
-    mapping(uint256 => Property) public idToProperty;
+    // these mappings will help us to keep track of the properties and their corresponding token addresses
+    mapping(uint256 => Property) public idToProperty; 
     mapping(uint256 => address) public idToTokenAddress;
+
+    mapping (uint256 => address) public users; // mapping to keep track of users and their addresses
+    mapping (address => bool) public isUser; // mapping to check if the user is verified or not
 
     address public admin;
 
@@ -38,7 +43,7 @@ contract Estate {
         propertyCounter = 0;
     }
 
-    function addProperty(string memory pAddress) public {
+    function addProperty(string memory pAddress) public onlyAdmin {
         Property memory newProperty = Property({
             propertyAddress: pAddress,
             status: PropertyStatus.OnSale
@@ -50,14 +55,22 @@ contract Estate {
         propertyCounter++;
     }
 
-    function buyPropertyTokens() public verifiedUser {}
+    function registerUser(address userAddress) public onlyAdmin {
+        // need to check if the user is already registered or not
+        users[userCounter] = userAddress;
+        isUser[userAddress] = true;
+        userCounter++;
+    }
 
-    function sellPropertyTokens() public verifiedUser {}
+    function buyPropertyTokens(address userAddress) public verifiedUser(userAddress) {}
+
+    function sellPropertyTokens(address userAddress) public verifiedUser(userAddress) {}
 
     // in this rent distribution function we will be writing the logic to handle the distribution of rents (lets say on monthly basis) to respective property token holders. the automation for now we will be dealing in the backend part. 
     function rentDistribution() public onlyAdmin {}
 
-    modifier verifiedUser() {
+    modifier verifiedUser(address userAddress) {
+        require(isUser[userAddress] == true, "User is verified");
         _;
     }
 
