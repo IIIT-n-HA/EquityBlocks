@@ -49,6 +49,7 @@ contract Estate {
     constructor() {
         admin = msg.sender;
         propertyCounter = 0;
+        userCounter = 0;
     }
 
     function addProperty(
@@ -70,7 +71,7 @@ contract Estate {
 
     function registerUser(address usrAdr) public {
         // need to check if the user is already registered or not
-        USER memory newUser = USER();
+        // USER memory newUser = USER();
         users[userCounter] = usrAdr;
         isUser[usrAdr] = true;
         userCounter++;
@@ -82,23 +83,55 @@ contract Estate {
         uint256 propertyID
     ) public payable verifyUser(userAddress) {
         if (
-            (idToProperty[propertyID].status != PropertyStatus.OnSale) ||
+            // (idToProperty[propertyID].status != PropertyStatus.OnSale) ||
             (idToProperty[propertyID].status == PropertyStatus.Open) ||
             (idToProperty[propertyID].status == PropertyStatus.Closed) ||
-            (idToProperty[propertyID].status != PropertyStatus.SoldOut) ||
-            (getRemainingTokens(propertyID) > 0) ||
+            (idToProperty[propertyID].status == PropertyStatus.SoldOut) ||
+            (getRemainingTokens(propertyID) <= 0) ||
             (msg.value >= idToProperty[propertyID].costOfProperty)
         ) {
             revert(); // give this a name later
         }
-        idToProperty[propertyID].tokenSold++;
+
+        userRegistry[userAddress].tokenHolding[propertyID]++;
+        idToProperty[propertyID].tokenSold++; 
+        // will have to log an event here
     }
 
     // this function will allow user to sell their property tokens on this same platform either to other users or back to the admin
     function sellPropertyTokens(
         address userAddress,
         uint256 propertyID
-    ) public verifyUser(userAddress) {}
+    ) public verifyUser(userAddress) {
+        //check if user has that property token to sell and keep a track of the number of tokens user has of that particular property
+        require(userRegistry[userAddress].tokenHolding[propertyID] > 0, "User does not have enough tokens to sell");
+
+        //if and only if the property is on 'SoldOut or OnSale' status user can sell the tokens back to admin or other users, and if it was 'SoldOut' status then the status will be changed to 'OnSale'
+        require((idToProperty[propertyID].status == PropertyStatus.OnSale) || (idToProperty[propertyID].status == PropertyStatus.SoldOut), "Current property status does not allow selling tokens");
+        if(idToProperty[propertyID].status == PropertyStatus.SoldOut) {
+            idToProperty[propertyID].status = PropertyStatus.OnSale;
+        }
+
+        // if the property is in 'Open' status user can sell the tokens to other users only
+        if(idToProperty[propertyID].status == PropertyStatus.Open) {
+            // logic to sell tokens to other users only
+        }
+
+        // if the property is in 'Closed' status user cannot sell the tokens to anyone on this platform
+        if(idToProperty[propertyID].status == PropertyStatus.Closed) {
+            revert("Trying selling on other platform, current property status does not allow selling these tokens");
+        }
+        // this function will never be called by admin, only users can call this function to sell their tokens
+
+        uint256 amountToTransfer = idToProperty[propertyID].costOfProperty * 1;
+
+        //Transfer ether to user (using call method for safety)
+        (bool success,) = userAddress.call{value:amountToTransfer}("");
+        require(success, "Transfer failed.");
+        userRegistry[userAddress].tokenHolding[propertyID]--;
+        idToProperty[propertyID].tokenSold--;
+        // will have to log an event here
+    }
 
     function withdrawFunds() public onlyAdmin returns (bool) {
         (bool success, ) = admin.call{value: address(this).balance}("");
@@ -129,5 +162,9 @@ contract Estate {
     ) public view returns (uint256) {
         if (idToProperty[propertyID].tokenSold >= 100) return 0;
         return (100 - idToProperty[propertyID].tokenSold);
+    }
+
+    function getUserTokenHolding(address userAddress, uint256 propertyID) public view returns(uint256) {
+        return userRegistry[userAddress].tokenHolding[propertyID];
     }
 }
