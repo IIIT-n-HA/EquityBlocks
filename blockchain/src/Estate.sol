@@ -29,6 +29,7 @@ contract Estate {
         PropertyStatus status;
         uint256 costOfProperty; // cost of each property token actually
         uint256 tokenSold;
+        address tokenAddress; // address of the corresponding ERC20 token contract
     }
 
     struct USER {
@@ -56,14 +57,17 @@ contract Estate {
         string memory pAddress,
         uint256 cost
     ) public onlyAdmin {
+
+        Token newToken = new Token();
+
         Property memory newProperty = Property({
             propertyAddress: pAddress,
             status: PropertyStatus.OnSale,
             costOfProperty: cost,
-            tokenSold: 0
+            tokenSold: 0,
+            tokenAddress: address(newToken)
         });
 
-        Token newToken = new Token();
         idToProperty[propertyCounter] = newProperty;
         idToTokenAddress[propertyCounter] = address(newToken);
         propertyCounter++;
@@ -167,4 +171,27 @@ contract Estate {
     function getUserTokenHolding(address userAddress, uint256 propertyID) public view returns(uint256) {
         return userRegistry[userAddress].tokenHolding[propertyID];
     }
+
+    function getPropertyAddress(uint256 properytID) public view returns (string memory) {
+        return idToProperty[properytID].propertyAddress;
+    }
+
+    function getPropertyCost(uint256 propertyID) public view returns (uint256) {
+        return idToProperty[propertyID].costOfProperty;
+    }
+
+    function getPropertyStatus(uint256 propertyID) public view returns (PropertyStatus) {
+        return idToProperty[propertyID].status;
+    }
+
+    function getPropertyTokenSold(uint256 propertyID) public view returns (uint256) {
+        return idToProperty[propertyID].tokenSold;
+    }
+
+    function getPropertyTokenAddress(uint256 propertyID) public view returns (address) {
+        return idToProperty[propertyID].tokenAddress;
+    }
+
+    // function getRegisteredUser(uint256 userID) public view returns (USER memory) {}
+    // --> need to work on this function later it is giving error
 }
