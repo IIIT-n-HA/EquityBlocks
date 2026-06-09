@@ -62,23 +62,64 @@ contract testEstate is Test {
         estate.addProperty(pAddress, cost);
     }
 
-    // // test buyPropertyTokens function
-    // function test_BuyPropertyTokens() public {
-    //     // Arrange
-    //        // Create and register a user
-    //        address USER = makeAddr("USER");
-    //        estate.registerUser(USER);
-    //        // Initialize and a property
-    //        string memory pAddress = "abc";
-    //        uint256 cost = 1 ether;
-    //        estate.addProperty(pAddress, cost);
-    //     // Act
-    //        // User buys property tokens
-    //        vm.prank(USER);
-    //        estate.buyPropertyTokens{value: 5 ether}(USER,0);
-    //     // Assert
-    //        // Verify the user's token holdings and property token sold count
-    //        // create a getter function for userRegistery mapping in Estate contract
-    // }
+    // test buyPropertyTokens function
+    function test_BuyPropertyTokens() public {
+        // Arrange
+           // Create and register a user
+           address USER = makeAddr("USER");
+           vm.deal(USER, 10 ether);
+           estate.registerUser(USER);
+           // Initialize and add a property
+           string memory pAddress = "abc";
+           uint256 cost = 1 ether;
+           estate.addProperty(pAddress, cost);
+        // Act
+           // User buys property tokens
+           vm.prank(USER);
+           estate.buyPropertyTokens{value: 1 ether}(USER,0);
+        // Assert
+           // Verify the user's token holdings and property token sold count
+           assertEq(estate.getUserTokenHolding(USER, 0),1);
+           assertEq(estate.getPropertyTokenSold(0),1);
+    }
+
+    // test sellPropertyTokens function
+    function test_SellPropertyTokens() public {
+        // Arrange
+        // Act
+        // Assert
+    }
+
+    // test rentDistribution function
+    function test_RentDistribution() public {
+        // Arrange
+        // Act
+        // Assert
+    }
+
+    // test withdrawFunds function
+    receive() external payable {}
+    function test_WithdrawFunds() public {
+        // Arrange
+            // Keep track of admin's balance before withdrawal
+            uint256 adminBalanceBefore = address(this).balance;
+            // Create and register a user
+            address USER = makeAddr("USER");
+            vm.deal(USER, 10 ether);
+            estate.registerUser(USER);
+            // Initialize and add a property
+            string memory pAddress = "abc";
+            uint256 cost = 1 ether;
+            estate.addProperty(pAddress, cost);
+            // User buys property tokens
+            vm.prank(USER);
+            estate.buyPropertyTokens{value: 1 ether}(USER, 0);
+        // Act
+            // Admin withdraws funds
+            estate.withdrawFunds();
+        // Assert
+            // Verify the admin's balance after withdrawal
+            assertEq(address(this).balance, (adminBalanceBefore + 1 ether));
+    }
 
 }

@@ -12,7 +12,7 @@ contract Estate {
     // Implement a tracking mechanism to track the ownership of the property tokens
     // Implement a mechanism to distribute the rent to the property token holders based on their ownership percentage
     // Logging events of all major actions and distributions for transparency and auditing purposes
-    // Admin has ability for contract pausing, emergency updates, disputing fradulent transactions withinn controlled boundaries, flag users
+    // Admin has ability for contract pausing, emergency updates, disputing fradulent transactions within controlled boundaries, flag users
 
     uint256 public propertyCounter; // to keep track of the number of properties added
     uint256 public userCounter; // to keep track of the number of users registered
@@ -32,6 +32,7 @@ contract Estate {
         address tokenAddress; // address of the corresponding ERC20 token contract
     }
 
+    address[] public USERS;
     struct USER {
         // address userAddress;
         mapping(uint256 => uint256) tokenHolding;
@@ -53,11 +54,7 @@ contract Estate {
         userCounter = 0;
     }
 
-    function addProperty(
-        string memory pAddress,
-        uint256 cost
-    ) public onlyAdmin {
-
+    function addProperty(string memory pAddress, uint256 cost) public onlyAdmin {
         Token newToken = new Token();
 
         Property memory newProperty = Property({
@@ -75,54 +72,55 @@ contract Estate {
 
     function registerUser(address usrAdr) public {
         // need to check if the user is already registered or not
-        // USER memory newUser = USER();
+        // USER memory newUser = USER(); --> this is invalid syntax
+        require(!isUser[usrAdr], 'User already registered');
+        USERS[userCounter] = usrAdr;
+        USER storage newUser = USER;
+        userRegistry[usrAdr] = newUser;
         users[userCounter] = usrAdr;
         isUser[usrAdr] = true;
         userCounter++;
     }
 
     // initially this function will allow user to buy one property token at a time, we will be adding the functionality to buy multiple tokens in the next iteration
-    function buyPropertyTokens(
-        address userAddress,
-        uint256 propertyID
-    ) public payable verifyUser(userAddress) {
+    function buyPropertyTokens(address userAddress, uint256 propertyID) public payable verifyUser(userAddress) {
         if (
             // (idToProperty[propertyID].status != PropertyStatus.OnSale) ||
-            (idToProperty[propertyID].status == PropertyStatus.Open) ||
-            (idToProperty[propertyID].status == PropertyStatus.Closed) ||
-            (idToProperty[propertyID].status == PropertyStatus.SoldOut) ||
-            (getRemainingTokens(propertyID) <= 0) ||
-            (msg.value >= idToProperty[propertyID].costOfProperty)
+            (idToProperty[propertyID].status == PropertyStatus.Open)
+                || (idToProperty[propertyID].status == PropertyStatus.Closed)
+                || (idToProperty[propertyID].status == PropertyStatus.SoldOut) || (getRemainingTokens(propertyID) <= 0)
+                || (msg.value < idToProperty[propertyID].costOfProperty)
         ) {
             revert(); // give this a name later
         }
 
         userRegistry[userAddress].tokenHolding[propertyID]++;
-        idToProperty[propertyID].tokenSold++; 
+        idToProperty[propertyID].tokenSold++;
         // will have to log an event here
     }
 
     // this function will allow user to sell their property tokens on this same platform either to other users or back to the admin
-    function sellPropertyTokens(
-        address userAddress,
-        uint256 propertyID
-    ) public verifyUser(userAddress) {
+    function sellPropertyTokens(address userAddress, uint256 propertyID) public verifyUser(userAddress) {
         //check if user has that property token to sell and keep a track of the number of tokens user has of that particular property
         require(userRegistry[userAddress].tokenHolding[propertyID] > 0, "User does not have enough tokens to sell");
 
         //if and only if the property is on 'SoldOut or OnSale' status user can sell the tokens back to admin or other users, and if it was 'SoldOut' status then the status will be changed to 'OnSale'
-        require((idToProperty[propertyID].status == PropertyStatus.OnSale) || (idToProperty[propertyID].status == PropertyStatus.SoldOut), "Current property status does not allow selling tokens");
-        if(idToProperty[propertyID].status == PropertyStatus.SoldOut) {
+        require(
+            (idToProperty[propertyID].status == PropertyStatus.OnSale)
+                || (idToProperty[propertyID].status == PropertyStatus.SoldOut),
+            "Current property status does not allow selling tokens"
+        );
+        if (idToProperty[propertyID].status == PropertyStatus.SoldOut) {
             idToProperty[propertyID].status = PropertyStatus.OnSale;
         }
 
         // if the property is in 'Open' status user can sell the tokens to other users only
-        if(idToProperty[propertyID].status == PropertyStatus.Open) {
+        if (idToProperty[propertyID].status == PropertyStatus.Open) {
             // logic to sell tokens to other users only
         }
 
         // if the property is in 'Closed' status user cannot sell the tokens to anyone on this platform
-        if(idToProperty[propertyID].status == PropertyStatus.Closed) {
+        if (idToProperty[propertyID].status == PropertyStatus.Closed) {
             revert("Trying selling on other platform, current property status does not allow selling these tokens");
         }
         // this function will never be called by admin, only users can call this function to sell their tokens
@@ -130,7 +128,7 @@ contract Estate {
         uint256 amountToTransfer = idToProperty[propertyID].costOfProperty * 1;
 
         //Transfer ether to user (using call method for safety)
-        (bool success,) = userAddress.call{value:amountToTransfer}("");
+        (bool success,) = userAddress.call{value: amountToTransfer}("");
         require(success, "Transfer failed.");
         userRegistry[userAddress].tokenHolding[propertyID]--;
         idToProperty[propertyID].tokenSold--;
@@ -138,7 +136,7 @@ contract Estate {
     }
 
     function withdrawFunds() public onlyAdmin returns (bool) {
-        (bool success, ) = admin.call{value: address(this).balance}("");
+        (bool success,) = admin.call{value: address(this).balance}("");
         return success;
     }
 
@@ -161,14 +159,13 @@ contract Estate {
     }
 
     // getters
-    function getRemainingTokens(
-        uint256 propertyID
-    ) public view returns (uint256) {
+
+    function getRemainingTokens(uint256 propertyID) public view returns (uint256) {
         if (idToProperty[propertyID].tokenSold >= 100) return 0;
         return (100 - idToProperty[propertyID].tokenSold);
     }
 
-    function getUserTokenHolding(address userAddress, uint256 propertyID) public view returns(uint256) {
+    function getUserTokenHolding(address userAddress, uint256 propertyID) public view returns (uint256) {
         return userRegistry[userAddress].tokenHolding[propertyID];
     }
 
@@ -191,7 +188,4 @@ contract Estate {
     function getPropertyTokenAddress(uint256 propertyID) public view returns (address) {
         return idToProperty[propertyID].tokenAddress;
     }
-
-    // function getRegisteredUser(uint256 userID) public view returns (USER memory) {}
-    // --> need to work on this function later it is giving error
 }
